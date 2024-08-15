@@ -23,12 +23,20 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
+@app.route('/bakeries/<int:id>', methods=['PATCH'])
 def bakery_by_id(id):
 
     bakery = Bakery.query.filter_by(id=id).first()
+
+    # Update the name if provided in the form data
+    if 'name' in request.form:
+        bakery.name = request.form.get('name')
+
+    # Commit the changes to the database
+    db.session.commit()
+
     bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+    return make_response ( bakery_serialized, 200 )
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
@@ -37,13 +45,49 @@ def baked_goods_by_price():
         bg.to_dict() for bg in baked_goods_by_price
     ]
     return make_response( baked_goods_by_price_serialized, 200  )
-   
+
+
+@app.route('/baked_goods', methods=['POST'])
+def create_baked_good():
+    # Extract data from the form
+    name = request.form.get('name')
+    price = request.form.get('price')
+    bakery_id = request.form.get('bakery_id')
+
+    # Create a new BakedGood object
+    new_baked_good = BakedGood(name=name, price=price, bakery_id=bakery_id)
+
+    # Add the new baked good to the database
+    db.session.add(new_baked_good)
+    db.session.commit()
+
+    # Return the new baked good as a response
+    new_baked_good_serialized = new_baked_good.to_dict()
+    return make_response( new_baked_good_serialized, 201 )
+
 
 @app.route('/baked_goods/most_expensive')
 def most_expensive_baked_good():
     most_expensive = BakedGood.query.order_by(BakedGood.price.desc()).limit(1).first()
     most_expensive_serialized = most_expensive.to_dict()
     return make_response( most_expensive_serialized,   200  )
+
+
+@app.route('/baked_goods/<int:id>', methods=['DELETE'])
+def delete_baked_good(id):
+    baked_good = BakedGood.query.filter_by(id=id).first()
+
+    # Check if the baked good exists
+    if not baked_good:
+        return jsonify({'message': 'Baked good not found'}), 404
+
+    # Delete the baked good from the database
+    db.session.delete(baked_good)
+    db.session.commit()
+
+    return jsonify({'message': 'Baked good deleted'}), 200
+
+    
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
